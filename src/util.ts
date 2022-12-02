@@ -1,7 +1,8 @@
 import fs from 'fs';
 import {pipe, F, S} from '@mobily/ts-belt';
 
-export const loadInput = (day: string) => pipe(loadRawInput(day), S.split('\n'));
+export const loadInput = (day: string) =>
+    pipe(loadRawInput(day), S.split('\n'));
 
 export const loadRawInput = (day: string) =>
     pipe(
@@ -27,3 +28,9 @@ export const makeDeepWritable = <T>(t: T) => {
 };
 
 type DeepWriteable<T> = {-readonly [P in keyof T]: DeepWriteable<T[P]>};
+
+export class UnreachableCaseError extends Error {
+    constructor(val: never) {
+        super(`Unreachable case: ${JSON.stringify(val)}`);
+    }
+}

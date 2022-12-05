@@ -34,3 +34,8 @@ export class UnreachableCaseError extends Error {
         super(`Unreachable case: ${JSON.stringify(val)}`);
     }
 }
+
+export const log: <T>(a: T) => T = F.tap(item => {
+    console.log(item);
+    return item;
+});

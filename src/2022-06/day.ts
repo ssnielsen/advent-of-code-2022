@@ -9,6 +9,7 @@ const allDifferent = (s: string[]) => {
 const makeFindMarker = (length: number) =>
     flow(
         S.split(''),
+        // @ts-ignore
         aperture(length),
         A.reduceWithIndex(new Array<number>(), (state, seq, index) => {
             if (allDifferent(seq)) {

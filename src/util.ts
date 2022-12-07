@@ -12,7 +12,8 @@ export const loadRawInput = (day: string) =>
         S.trim,
     );
 
-// export const hasValue = <T>(thing: T | undefined | null): thing is T => Boolean(thing);
+export const hasValue = <T>(thing: T | undefined | null): thing is T =>
+    Boolean(thing);
 
 export const forceUnwrap = <T>(thing: T): NonNullable<T> => thing!;
 

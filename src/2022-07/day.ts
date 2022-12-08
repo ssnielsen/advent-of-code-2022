@@ -1,4 +1,4 @@
-import {A, pipe} from '@mobily/ts-belt';
+import {A, N, pipe} from '@mobily/ts-belt';
 import {hasValue, loadInput} from '../util';
 
 type ChangeDirectory =
@@ -35,84 +35,94 @@ type Command =
       };
 
 type Directory = {
-    name: string;
-    parent: string;
     subdirectories: string[];
-    files: [string, number][];
+    files: number[];
 };
 
 type Tree = {
     nodes: Map<string, Directory>;
-    currentNode: string;
+    currentPath: string[];
 };
 
 type Input = Command[];
 
-const addToTree = (tree: Tree, item: Command) => {
-    console.log(tree);
-    console.log('------------------------');
-    console.log(item);
+const buildPath = (elements: string[]) => elements.join('/');
 
+const addToTree = (tree: Tree, item: Command) => {
     switch (item.command) {
         case 'cd':
             switch (item.type.type) {
                 case 'in':
                     return {
                         ...tree,
-                        currentNode: item.type.to,
+                        currentPath: [...tree.currentPath, item.type.to],
                     };
                 case 'out':
                     return {
                         ...tree,
-                        currentNode: tree.nodes.get(tree.currentNode)!.parent,
+                        currentPath: pipe(
+                            tree.currentPath,
+                            A.reverse,
+                            A.drop(1),
+                            A.reverse,
+                        ) as string[],
                     };
                 case 'root': {
                     return {
                         ...tree,
-                        currentNode: '/',
+                        currentPath: ['/'],
                     };
                 }
             }
         case 'ls':
             return item.result.reduce((current, listResult) => {
+                const currentCacheKey = buildPath(current.currentPath);
+
                 switch (listResult.type) {
                     case 'directory':
-                        if (current.nodes.has(listResult.name)) {
-                            return current;
+                        const newDirectoryCacheKey = buildPath([
+                            ...current.currentPath,
+                            listResult.name,
+                        ]);
+
+                        const newDirectory = {
+                            subdirectories: new Array<string>(),
+                            files: new Array<number>(),
+                        };
+
+                        const currentDirectory =
+                            current.nodes.get(currentCacheKey);
+
+                        if (!currentDirectory) {
+                            throw new Error('Test');
                         }
+
+                        const updatedCurrentDirectory = {
+                            ...currentDirectory,
+                            subdirectories: [
+                                ...currentDirectory.subdirectories,
+                                listResult.name,
+                            ],
+                        };
 
                         return {
                             ...current,
                             nodes: current.nodes
-                                .set(listResult.name, {
-                                    files: [],
-                                    name: listResult.name,
-                                    parent: current.currentNode,
-                                    subdirectories: [],
-                                })
-                                .set(current.currentNode, {
-                                    ...current.nodes.get(current.currentNode)!,
-                                    subdirectories: [
-                                        ...current.nodes.get(
-                                            current.currentNode,
-                                        )!.subdirectories,
-                                        listResult.name,
-                                    ],
-                                }),
+                                .set(newDirectoryCacheKey, newDirectory)
+                                .set(currentCacheKey, updatedCurrentDirectory),
                         };
                     case 'file':
-                        const node = current.nodes.get(
-                            current.currentNode,
-                        ) as Directory;
+                        const node = current.nodes.get(currentCacheKey);
+
+                        if (!node) {
+                            throw Error('Did not find a node!');
+                        }
 
                         return {
                             ...current,
-                            nodes: current.nodes.set(current.currentNode, {
+                            nodes: current.nodes.set(currentCacheKey, {
                                 ...node,
-                                files: [
-                                    ...node.files,
-                                    [listResult.name, listResult.size],
-                                ],
+                                files: [...node.files, listResult.size],
                             }),
                         };
                     default:
@@ -122,15 +132,37 @@ const addToTree = (tree: Tree, item: Command) => {
     }
 };
 
-const part1 = (input: Input) => {
-    const resultingTree = A.reduce(
+const sumFiles = (files: Directory['files']) => {
+    return A.reduce(files, 0, (totalSize, fileSize) => totalSize + fileSize);
+};
+
+const calculateFolder = (path: string[], tree: Tree): number => {
+    const cacheKey = buildPath(path);
+
+    const node = tree.nodes.get(cacheKey);
+
+    if (!node) {
+        throw Error(`Unknown node: ${path}`);
+    }
+
+    return (
+        sumFiles(node.files) +
+        A.reduce(
+            node.subdirectories,
+            0,
+            (totalSize, subdirectory) =>
+                totalSize + calculateFolder([...path, subdirectory], tree),
+        )
+    );
+};
+
+const makeTree = (input: Input) => {
+    return A.reduce(
         input,
         {
-            currentNode: '/',
+            currentPath: ['/'],
             nodes: new Map<string, Directory>().set('/', {
                 files: [],
-                name: '/',
-                parent: '',
                 subdirectories: [],
             }),
         },
@@ -138,10 +170,43 @@ const part1 = (input: Input) => {
             return addToTree(current, command);
         },
     );
+};
 
-    console.log(resultingTree);
+const calculateFolderSizes = (tree: Tree) => {
+    return [...tree.nodes.keys()].map(nodeName => {
+        return calculateFolder([nodeName], tree);
+    });
+};
 
-    return resultingTree.nodes.keys();
+const part1 = (input: Input) => {
+    const tree = makeTree(input);
+
+    const result = calculateFolderSizes(tree)
+        .filter(size => size <= 100000)
+        .reduce((a, b) => a + b, 0);
+
+    return result;
+};
+
+const part2 = (input: Input) => {
+    const totalAvailableSpace = 70_000_000;
+    const neededSpace = 30_000_000;
+
+    const tree = makeTree(input);
+
+    const directorySizes = calculateFolderSizes(tree);
+
+    const totalSize = calculateFolder(['/'], tree);
+
+    const unusedSpace = totalAvailableSpace - totalSize;
+
+    const spaceWeNeedToFind = neededSpace - unusedSpace;
+
+    return pipe(
+        directorySizes,
+        A.sort(N.subtract),
+        A.find(size => size > spaceWeNeedToFind),
+    );
 };
 
 type ParsingState = Extract<Command, {command: 'ls'}> | null;
@@ -149,7 +214,10 @@ type ParsingState = Extract<Command, {command: 'ls'}> | null;
 const parse = () => {
     const input = loadInput('2022-07');
 
-    const X = A.reduce<string, {state: ParsingState; result: Command[]}>(
+    const {state, result} = A.reduce<
+        string,
+        {state: ParsingState; result: Command[]}
+    >(
         input,
         {
             state: null,
@@ -246,11 +314,12 @@ const parse = () => {
         },
     );
 
-    return [...X.result, X.state].filter(hasValue);
+    return [...result, state].filter(hasValue);
 };
 
 export const run = () => {
     const input = parse();
 
     console.log(part1(input));
+    console.log(part2(input));
 };

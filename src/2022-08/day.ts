@@ -43,15 +43,7 @@ const canSeeTree = (
     tree: Tree,
     sightlines: ReturnType<typeof getSightlines>,
 ) => {
-    return pipe(
-        sightlines,
-        A.some(sightline => {
-            return pipe(
-                sightline,
-                A.every(otherTree => otherTree < tree),
-            );
-        }),
-    );
+    return pipe(sightlines, A.some(A.every(otherTree => otherTree < tree)));
 };
 
 const part1 = (forest: Forest) => {

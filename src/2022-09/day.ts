@@ -1,5 +1,4 @@
-import {A, D, F, flow, N, O, pipe, S} from '@mobily/ts-belt';
-import {reverse, transpose} from 'ramda';
+import {A, D, flow, N, O, pipe, S} from '@mobily/ts-belt';
 import {exhaustiveCheck, loadInput, log} from '../util';
 
 type Direction = 'U' | 'D' | 'R' | 'L';
@@ -54,76 +53,19 @@ const getNewKnotPosition = (knot: Location, previous: Location): Location => {
     const deltaX = headX - tailX;
     const deltaY = headY - tailY;
 
-    if (deltaY === 2) {
-        const newTailY = tailY + 1;
+    const isMoveNecessary = Math.abs(deltaX) >= 2 || Math.abs(deltaY) >= 2;
 
-        if (deltaX === 0) {
-            return [tailX, newTailY];
-        } else if (deltaX === -1) {
-            return [tailX - 1, newTailY];
-        } else if (deltaX === 1) {
-            return [tailX + 1, newTailY];
-        } else if (deltaX === -2) {
-            return [tailX - 2, newTailY];
-        } else if (deltaX === 2) {
-            return [tailX + 2, newTailY];
-        }
+    if (!isMoveNecessary) {
+        return knot;
     }
 
-    if (deltaY === -2) {
-        const newTailY = tailY - 1;
+    const diffX = deltaX === 0 ? 0 : -deltaX / Math.abs(deltaX);
+    const diffY = deltaY === 0 ? 0 : -deltaY / Math.abs(deltaY);
 
-        if (deltaX === 0) {
-            return [tailX, newTailY];
-        } else if (deltaX === -1) {
-            return [tailX - 1, newTailY];
-        } else if (deltaX === 1) {
-            return [tailX + 1, newTailY];
-        } else if (deltaX === -2) {
-            return [tailX - 2, newTailY];
-        } else if (deltaX === 2) {
-            return [tailX + 2, newTailY];
-        }
-    }
-
-    if (deltaX === 2) {
-        const newTailX = tailX + 1;
-
-        if (deltaY === 0) {
-            return [newTailX, tailY];
-        } else if (deltaY === -1) {
-            return [newTailX, tailY - 1];
-        } else if (deltaY === 1) {
-            return [newTailX, tailY + 1];
-        } else if (deltaY === -2) {
-            return [newTailX, tailY - 2];
-        } else if (deltaY === 2) {
-            return [newTailX, tailY + 2];
-        }
-    }
-
-    if (deltaX === -2) {
-        const newTailX = tailX - 1;
-
-        if (deltaY === 0) {
-            return [newTailX, tailY];
-        } else if (deltaY === -1) {
-            return [newTailX, tailY - 1];
-        } else if (deltaY === 1) {
-            return [newTailX, tailY + 1];
-        } else if (deltaY === -2) {
-            return [newTailX, tailY - 2];
-        } else if (deltaY === 2) {
-            return [newTailX, tailY + 2];
-        }
-    }
-
-    return [tailX, tailY];
+    return [tailX - diffX, tailY - diffY];
 };
 
 const step = (state: State, [direction, distance]: Instruction) => {
-    console.log(direction, distance);
-
     return pipe(
         A.repeat(distance, 1),
         A.reduce(state, (state, _) => {
@@ -139,11 +81,8 @@ const step = (state: State, [direction, distance]: Instruction) => {
                         getNewKnotPosition(knot, O.getExn(A.last(current))),
                     ];
                 }),
-                log,
                 A.drop(1),
             );
-
-            // visualize(newTailPositions);
 
             return {
                 ...stateAfterMovingHead,
@@ -189,12 +128,7 @@ const part2 = (input: Input) => {
         ),
         D.getUnsafe('tailVisited'),
         A.uniq,
-        // F.tap(a => {
-        //     visualize(a);
-        // }),
-        // log,
         A.length,
-        // N.add(1),
     );
 
     return result;
@@ -229,7 +163,6 @@ U 20
 const parse = () => {
     return pipe(
         loadInput('2022-09'),
-        // testInput2,
         A.map(
             flow(S.split(' '), ([direction, distance]) => {
                 return [direction, Number(distance)] as Instruction;
@@ -241,31 +174,6 @@ const parse = () => {
 export const run = () => {
     const input = parse();
 
-    // console.log(part1(input));
+    console.log(part1(input));
     console.log(part2(input));
-};
-
-const visualize = (coordinates: readonly Location[]) => {
-    // Define the coordinates of the path
-
-    // Create an empty grid
-    const grid = [];
-    for (let i = 0; i < 200; i++) {
-        grid[i] = [];
-        for (let j = 0; j < 200; j++) {
-            // @ts-ignore
-            grid[i][j] = ' ';
-        }
-    }
-
-    // Loop through the coordinates and add them to the grid
-    for (const coord of coordinates) {
-        // @ts-ignore
-        grid[coord[0] + 100][coord[1] + 100] = '*';
-    }
-
-    // Print the grid to the terminal
-    for (const row of reverse(transpose(grid))) {
-        console.log(row.join(' '));
-    }
 };
